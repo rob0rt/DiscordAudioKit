@@ -1,0 +1,33 @@
+{
+  "originHash" : "a69299d224d4922128fad9691dd48c627fc6fd485311fd4810af1dc05640e280",
+  "pins" : [
+    {
+      "identity" : "davekit",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:rob0rt/DaveKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "b921da3273fcf912a369a64958b4f2ce89831fe2"
+      }
+    },
+    {
+      "identity" : "opuskit",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:rob0rt/OpusKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2d7479d5e676d85af86c3cc54abf5b8a15904123"
+      }
+    },
+    {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log",
+      "state" : {
+        "revision" : "7ee16e465622412764b0ff0c1301801dc71b8f61",
+        "version" : "1.9.0"
+      }
+    }
+  ],
+  "version" : 3
+}

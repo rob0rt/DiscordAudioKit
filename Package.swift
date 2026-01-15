@@ -25,6 +25,9 @@ let package = Package(
                 .product(name: "DaveKit", package: "DaveKit"),
                 .product(name: "OpusKit", package: "OpusKit"),
             ],
+            swiftSettings: [
+                .interoperabilityMode(.Cxx),
+            ],
         ),
         .testTarget(
             name: "DiscordAudioKitTests",
