@@ -2,29 +2,13 @@ import WSClient
 import DaveKit
 import Foundation
 
-public actor DiscordAudioGateway {
-    private let endpoint: String
-    private let serverId: String
-    private let userId: String
-    private let sessionId: String
-    private let token: String
-
+final public actor DiscordAudioGateway {
     private var sequence: Int = -1
-    private var outbound: WebSocketOutboundWriter?
+    private var outbound: WebSocketOutboundWriter
     private var heartbeatTask: Task<Void, Error>?
 
-    init(
-        endpoint: String,
-        serverId: String,
-        userId: String,
-        sessionId: String,
-        token: String,
-    ) {
-        self.endpoint = endpoint
-        self.serverId = serverId
-        self.userId = userId
-        self.sessionId = sessionId
-        self.token = token
+    private init(outbound: WebSocketOutboundWriter) {
+        self.outbound = outbound
     }
 
     private var eventsStreamContinuations = [AsyncStream<VoiceGateway.Event>.Continuation]()
@@ -34,41 +18,40 @@ public actor DiscordAudioGateway {
         }
     }
 
-    public func connect() async throws {
-        let ws = WebSocketClient(url: "ws://mywebsocket.com/ws", logger: logger) { inbound, outbound, context in
+    @discardableResult
+    static func connect(
+        endpoint: String,
+        serverId: String,
+        userId: String,
+        sessionId: String,
+        token: String,
+        onConnect: @escaping @Sendable (DiscordAudioGateway) async -> Void
+    ) async throws -> WebSocketCloseFrame? {
+        return try await WebSocketClient.connect(url: endpoint, logger: logger) { inbound, outbound, context in
+    
+            let gateway = DiscordAudioGateway(outbound: outbound)
 
-            // Unlike the primary Discord gateway, we need to identify immediately upon connection
-            let identify = VoiceGateway.Event(from: .identify(.init(
-                serverId: self.serverId,
-                userId: self.userId,
-                sessionId: self.sessionId,
-                token: self.token,
-                maxDaveProtocolVersion: DaveSessionManager.maxSupportedProtocolVersion(),
-            )))
-            try await outbound.write(.init(from: identify))
+            await withThrowingTaskGroup { taskGroup in
+                taskGroup.addTask {
+                    await onConnect(gateway)
+                }
 
-            await self.setOutboundWriter(outbound)
-
-            // Process inbound messages
-            for try await frame in inbound.messages(maxSize: 1 << 14) {
-                if let event = VoiceGateway.Event(from: frame) {
-                    await self.processEvent(event)
+                taskGroup.addTask {
+                    for try await frame in inbound.messages(maxSize: 1 << 14) {
+                        if let event = VoiceGateway.Event(from: frame) {
+                            await gateway.processEvent(event)
+                        }
+                    }
                 }
             }
 
-            await self.heartbeatTask?.cancel()
-            await self.eventsStreamContinuations.forEach { $0.finish() }
+            await gateway.heartbeatTask?.cancel()
+            await gateway.eventsStreamContinuations.forEach { $0.finish() }
         }
-
-        try await ws.run()
     }
 
     func send(_ event: VoiceGateway.Event) async throws {
-        try await outbound?.write(.init(from: event))
-    }
-
-    private func setOutboundWriter(_ outbound: WebSocketOutboundWriter) {
-        self.outbound = outbound
+        try await outbound.write(.init(from: event))
     }
 
     private func setSequence(_ sequence: Int) {
@@ -83,7 +66,7 @@ public actor DiscordAudioGateway {
                     nonce: UInt64(Date().timeIntervalSince1970),
                     sequence: self.sequence,
                 )))
-                try await outbound?.write(.init(from: heartbeat))
+                try await outbound.write(.init(from: heartbeat))
             }
         }
     }
