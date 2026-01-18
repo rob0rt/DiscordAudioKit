@@ -52,6 +52,8 @@ public actor DiscordAudioSession {
                 switch event.data {
                 case .ready(let ready):
                     try? await self.listen(ready: ready, dave: dave)
+                case .speaking(let speaking):
+                    await self.setUserSSRC(userId: speaking.userId, ssrc: speaking.ssrc)
                 case .clientsConnect(let clients):
                     for userId in clients.userIds {
                         await dave.addUser(userId: userId)
@@ -81,7 +83,6 @@ public actor DiscordAudioSession {
                 }
             }
         }
-
     }
 
     nonisolated private func listen(
@@ -96,6 +97,10 @@ public actor DiscordAudioSession {
                 )
             }
         }
+    }
+
+    private func setUserSSRC(userId: String, ssrc: UInt32) {
+        knownSSRCs[ssrc] = userId
     }
 
     private func processVoicePacket(
