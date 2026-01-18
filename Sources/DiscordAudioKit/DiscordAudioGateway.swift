@@ -11,8 +11,8 @@ final public actor DiscordAudioGateway {
         self.outbound = outbound
     }
 
-    private var eventsStreamContinuations = [AsyncStream<VoiceGateway.Event>.Continuation]()
-    var events: AsyncStream<VoiceGateway.Event> {
+    private var eventsStreamContinuations = [AsyncStream<VoiceGateway.ServerEvent>.Continuation]()
+    var events: AsyncStream<VoiceGateway.ServerEvent> {
         AsyncStream { continuation in
             eventsStreamContinuations.append(continuation)
         }
@@ -38,7 +38,7 @@ final public actor DiscordAudioGateway {
 
                 taskGroup.addTask {
                     for try await frame in inbound.messages(maxSize: 1 << 14) {
-                        if let event = VoiceGateway.Event(from: frame) {
+                        if let event = VoiceGateway.ServerEvent(from: frame) {
                             await gateway.processEvent(event)
                         }
                     }
@@ -50,7 +50,7 @@ final public actor DiscordAudioGateway {
         }
     }
 
-    func send(_ event: VoiceGateway.Event) async throws {
+    func send(_ event: VoiceGateway.ClientEvent) async throws {
         try await outbound.write(.init(from: event))
     }
 
@@ -62,7 +62,7 @@ final public actor DiscordAudioGateway {
         heartbeatTask = Task {
             while !Task.isCancelled {
                 try await Task.sleep(for: interval)
-                let heartbeat = VoiceGateway.Event(from: .heartbeat(.init(
+                let heartbeat = VoiceGateway.ClientEvent(data: .heartbeat(.init(
                     nonce: UInt64(Date().timeIntervalSince1970),
                     sequence: self.sequence,
                 )))
@@ -71,7 +71,7 @@ final public actor DiscordAudioGateway {
         }
     }
 
-    private nonisolated func processEvent(_ event: VoiceGateway.Event) async {
+    private nonisolated func processEvent(_ event: VoiceGateway.ServerEvent) async {
         if let seq = event.sequence {
             await self.setSequence(Int(seq))
         }

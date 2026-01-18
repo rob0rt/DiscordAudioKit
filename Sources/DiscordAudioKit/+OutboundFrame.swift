@@ -3,7 +3,7 @@ import Foundation
 import NIOCore
 
 extension WebSocketOutboundWriter.OutboundFrame {
-    init(from event: VoiceGateway.Event) throws {
+    init(from event: VoiceGateway.ClientEvent) throws {
         switch event.data {
             // Client JSON-encoded opcodes
             // Should be kept in sync with `VoiceGateway.Event.encode`
@@ -15,11 +15,8 @@ extension WebSocketOutboundWriter.OutboundFrame {
                  .daveTransitionReady,
                  .daveMLSInvalidCommitWelcome:
                 
-                guard let data = try? JSONEncoder().encode(event),
-                      let string = String(data: data, encoding: .utf8) else {
-                    throw VoiceGateway.EncodingError.jsonEncodingFailure(opcode: event.data.opcode)
-                }
-                self = .text(string)
+                let data = try! JSONEncoder().encode(event)
+                self = .text(String(data: data, encoding: .utf8)!)
 
             // Client binary-encoded opcodes
             // (format: [opcode: UInt8][data: Data])
@@ -29,10 +26,6 @@ extension WebSocketOutboundWriter.OutboundFrame {
                 var frame = Data([event.data.opcode.rawValue])
                 frame.append(data)
                 self = .binary(ByteBuffer(data: frame))
-            
-            default:
-                // Unsupported opcode for client (outbound) frame
-                throw VoiceGateway.EncodingError.invalidClientOpcode(opcode: event.data.opcode)
         }
     }
 }

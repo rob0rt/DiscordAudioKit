@@ -57,6 +57,8 @@ final public actor DiscordAudioUDPConnection {
                     }
                 }
             }
+
+            await connection.packetsStreamContinuations.forEach { $0.finish() }
         }
     }
 
@@ -69,6 +71,9 @@ final public actor DiscordAudioUDPConnection {
         )
     }
 
+    /// Process a raw UDP voice packet and yield it to the packets stream.
+    /// 
+    /// https://discord.com/developers/docs/topics/voice-connections#transport-encryption-modes-voice-packet-structure
     private func processVoicePacket(
         buffer: inout ByteBuffer,
     ) async throws {

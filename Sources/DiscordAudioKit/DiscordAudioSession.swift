@@ -85,7 +85,7 @@ public actor DiscordAudioSession {
     }
 
     nonisolated private func listen(
-        ready: VoiceGateway.Ready,
+        ready: VoiceGateway.ServerEvent.Ready,
         dave: DaveSessionManager
     ) async throws {
         try await DiscordAudioUDPConnection.connect(host: ready.ip, port: Int(ready.port)) { connection in
@@ -118,24 +118,24 @@ public actor DiscordAudioSession {
 
 extension DiscordAudioGateway: DaveSessionDelegate {
     public func mlsKeyPackage(keyPackage: Data) async {
-        let event = VoiceGateway.Event(from: .daveMLSKeyPackage(keyPackage))
+        let event = VoiceGateway.ClientEvent(data: .daveMLSKeyPackage(keyPackage))
         try? await send(event)
     }
 
     public func readyForTransition(transitionId: UInt16) async {
-        let event = VoiceGateway.Event(
-            from: .daveTransitionReady(.init(transitionId: transitionId)))
+        let event = VoiceGateway.ClientEvent(
+            data: .daveTransitionReady(.init(transitionId: transitionId)))
         try? await send(event)
     }
 
     public func mlsCommitWelcome(welcome: Data) async {
-        let event = VoiceGateway.Event(from: .daveMLSCommitWelcome(welcome))
+        let event = VoiceGateway.ClientEvent(data: .daveMLSCommitWelcome(welcome))
         try? await send(event)
     }
 
     public func mlsInvalidCommitWelcome(transitionId: UInt16) async {
-        let event = VoiceGateway.Event(
-            from: .daveMLSInvalidCommitWelcome(.init(transitionId: transitionId)))
+        let event = VoiceGateway.ClientEvent(
+            data: .daveMLSInvalidCommitWelcome(.init(transitionId: transitionId)))
         try? await send(event)
     }
 }
