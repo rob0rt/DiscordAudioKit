@@ -1,24 +1,17 @@
 import WSClient
-import DaveKit
 import Foundation
+import AsyncAlgorithms
 
-final public actor DiscordAudioGateway {
+final actor DiscordAudioGateway {
     private var sequence: Int = -1
-    private var outbound: WebSocketOutboundWriter
+    private var outbound: WebSocketOutboundWriter?
+    private var inbound: WebSocketInboundStream?
     private var heartbeatTask: Task<Void, Error>?
 
-    private init(outbound: WebSocketOutboundWriter) {
-        self.outbound = outbound
-    }
+    private let outboundEvents = AsyncChannel<VoiceGateway.ClientEvent>()
 
-    private var eventsStreamContinuations = [AsyncStream<VoiceGateway.ServerEvent>.Continuation]()
-    var events: AsyncStream<VoiceGateway.ServerEvent> {
-        AsyncStream { continuation in
-            eventsStreamContinuations.append(continuation)
-        }
-    }
+    let events = AsyncChannel<VoiceGateway.ServerEvent>()
 
-    @discardableResult
     static func connect(
         endpoint: String,
         serverId: String,
@@ -26,36 +19,37 @@ final public actor DiscordAudioGateway {
         sessionId: String,
         token: String,
         onConnect: @escaping @Sendable (DiscordAudioGateway) async -> Void
-    ) async throws -> WebSocketCloseFrame? {
-        return try await WebSocketClient.connect(url: endpoint, logger: logger) { inbound, outbound, context in
-    
-            let gateway = DiscordAudioGateway(outbound: outbound)
+    ) async throws {
+        let gateway = DiscordAudioGateway()
 
-            await withThrowingTaskGroup { taskGroup in
-                taskGroup.addTask {
-                    await onConnect(gateway)
-                }
+        while true {
+            let closeFrame = try await WebSocketClient.connect(url: endpoint, logger: logger) { inbound, outbound, context in
+                await withThrowingTaskGroup { taskGroup in
+                    taskGroup.addTask {
+                        await onConnect(gateway)
+                    }
 
-                taskGroup.addTask {
-                    for try await frame in inbound.messages(maxSize: 1 << 14) {
-                        if let event = VoiceGateway.ServerEvent(from: frame) {
-                            await gateway.processEvent(event)
+                    taskGroup.addTask {
+                        for try await message in inbound.messages(maxSize: 1 << 14) {
+                            await gateway.processMessage(message)
                         }
                     }
                 }
             }
 
-            await gateway.heartbeatTask?.cancel()
-            await gateway.eventsStreamContinuations.forEach { $0.finish() }
+            guard let closeFrame,
+                let errorCode = VoiceGateway.CloseErrorCode(from: closeFrame),
+                errorCode.shouldReconnect else {
+                break
+            }
         }
+
+        gateway.events.finish()
+        gateway.outboundEvents.finish()
     }
 
-    func send(_ event: VoiceGateway.ClientEvent) async throws {
-        try await outbound.write(.init(from: event))
-    }
-
-    private func setSequence(_ sequence: Int) {
-        self.sequence = sequence
+    func send(_ event: VoiceGateway.ClientEvent) async {
+        await outboundEvents.send(.init(data: event.data))
     }
 
     private func setupHeartbeat(interval: Duration) {
@@ -66,25 +60,27 @@ final public actor DiscordAudioGateway {
                     nonce: UInt64(Date().timeIntervalSince1970),
                     sequence: self.sequence,
                 )))
-                try await outbound.write(.init(from: heartbeat))
+                await send(heartbeat)
             }
         }
     }
 
-    private nonisolated func processEvent(_ event: VoiceGateway.ServerEvent) async {
+    private func processMessage(_ message: WebSocketMessage) async {
+        guard let event = VoiceGateway.ServerEvent(from: message) else {
+            return
+        }
+
         if let seq = event.sequence {
-            await self.setSequence(Int(seq))
+            self.sequence = Int(seq)
         }
 
         switch event.data {
         case .hello(let hello):
-            await setupHeartbeat(interval: .milliseconds(hello.heartbeatInterval))
+            setupHeartbeat(interval: .milliseconds(hello.heartbeatInterval))
         default:
             break
         }
 
-        for continuation in await eventsStreamContinuations {
-            continuation.yield(event)
-        }
+        await events.send(event)
     }
 }

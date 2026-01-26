@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "git@github.com:rob0rt/OpusKit.git", branch: "main"),
         .package(url: "git@github.com:hummingbird-project/swift-websocket.git", from: "1.3.2"),
         .package(url: "git@github.com:apple/swift-log.git", from: "1.9.0"),
+        .package(url: "git@github.com:apple/swift-async-algorithms.git", from: "1.1.1"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -28,6 +29,7 @@ let package = Package(
                 .product(name: "OpusKit", package: "OpusKit"),
                 .product(name: "WSClient", package: "swift-websocket"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),

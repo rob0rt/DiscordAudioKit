@@ -407,4 +407,81 @@ enum VoiceGateway  {
         static let soundshare = SpeakingFlags(rawValue: 1 << 1)
         static let priority = SpeakingFlags(rawValue: 1 << 2)
     }
+
+    enum CloseErrorCode: Int, RawRepresentable {
+        /// You sent an invalid opcode.
+        case unknownOpcode = 4001
+
+        /// You sent an invalid payload in your identifying to the Gateway.
+        case failedToDecodePayload = 4002
+
+        /// You sent a payload before identifying with the Gateway.
+        case notAuthenticated = 4003
+
+        /// The token you sent in your identify payload is incorrect.
+        case authenticationFailed = 4004
+
+        /// You sent more than one identify payload. Stahp.
+        case alreadyAuthenticated = 4005
+
+        /// Your session is no longer valid.
+        case sessionNoLongerValid = 4006
+
+        /// Your session has timed out.
+        case sessionTimeout = 4009
+
+        /// We can't find the server you're trying to connect to.
+        case serverNotFound = 4011
+
+        /// We didn't recognize the protocol you sent.
+        case unknownProtocol = 4012
+
+        /// Disconnect individual client (you were kicked, the main gateway session was dropped, etc.).
+        case disconnected = 4014
+
+        /// The server crashed. Our bad! Try resuming.
+        case voiceServerCrashed = 4015
+
+        /// We didn't recognize your encryption.
+        case unknownEncryptionMode = 4016
+
+        /// You sent a malformed request
+        case badRequest = 4020
+
+        /// Disconnect due to rate limit exceeded.
+        case disconnectedRateLimited = 4021
+
+        /// Disconnect all clients due to call terminated (channel deleted, voice server changed, etc.).
+        case disconnectedCallTerminated = 4022
+
+        var shouldReconnect: Bool {
+            switch self {
+            case .unknownOpcode,
+                 .failedToDecodePayload,
+                 .notAuthenticated,
+                 .alreadyAuthenticated,
+                 .sessionNoLongerValid,
+                 .sessionTimeout,
+                 .serverNotFound,
+                 .unknownProtocol,
+                 .voiceServerCrashed,
+                 .unknownEncryptionMode,
+                 .badRequest:
+                return true
+            default:
+                return false
+            }
+        }
+
+        init?(from closeFrame: WebSocketCloseFrame) {
+            guard case let .unknown(closeCode) = closeFrame.closeCode else {
+                return nil
+            }
+
+            guard let code = CloseErrorCode(rawValue: Int(closeCode)) else {
+                return nil
+            }
+            self = code
+        }
+    }
 }
