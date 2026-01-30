@@ -8,7 +8,6 @@ let logger = Logger(label: "net.robort.discordaudiokit")
 
 public actor DiscordAudioSession: DaveSessionDelegate {
 
-    // private var gateway: DiscordAudioGateway.Session
     // private let decoder: Decoder = try! Decoder(sampleRate: .`48000`, channels: .stereo)
 
     private lazy var dave: DaveSessionManager = {
@@ -19,9 +18,13 @@ public actor DiscordAudioSession: DaveSessionDelegate {
         )
     }()
     private var knownSSRCs: [UInt32: String] = [:]
-
-    private var gatewayTask: Task<Void, Error>?
     private var udpTask: Task<Void, Error>?
+
+    private let gateway: DiscordAudioGateway
+
+    private init(gateway: DiscordAudioGateway) {
+        self.gateway = gateway
+    }
 
     public static func connect(
         endpoint: String,
@@ -30,23 +33,17 @@ public actor DiscordAudioSession: DaveSessionDelegate {
         sessionId: String,
         token: String,
     ) async throws {
-        let session = DiscordAudioSession()
+        try await DiscordAudioGateway.connect(
+            endpoint: endpoint,
+            serverId: guildId,
+            userId: userId,
+            sessionId: sessionId,
+            token: token
+        ) { gateway in
+            let session = DiscordAudioSession(gateway: gateway)
 
-        await session.setGatewayTask {
-            try await DiscordAudioGateway.connect(
-                endpoint: endpoint,
-                serverId: guildId,
-                userId: userId,
-                sessionId: sessionId,
-                token: token
-            ) { gateway in
-                await withTaskGroup { taskGroup in 
-                    taskGroup.addTask {
-                        for await event in await gateway.events {
-                            await session.handleGatewayEvent(event)
-                        }
-                    }
-                }
+            for await event: VoiceGateway.ServerEvent in gateway.events {
+                await session.handleGatewayEvent(event)
             }
         }
     }
@@ -103,12 +100,6 @@ public actor DiscordAudioSession: DaveSessionDelegate {
         }
     }
 
-    private func setGatewayTask(_ task: @Sendable @escaping () async throws -> Void) {
-        self.gatewayTask = Task {
-            try await task()
-        }
-    }
-
     private func setKnownSSRC(userId: String, ssrc: UInt32) async {
         self.knownSSRCs[ssrc] = userId
     }
@@ -131,24 +122,24 @@ public actor DiscordAudioSession: DaveSessionDelegate {
     }
 
     public func mlsKeyPackage(keyPackage: Data) async {
-        // let event = VoiceGateway.ClientEvent(data: .daveMLSKeyPackage(keyPackage))
-        // try? await gateway.send(event)
+        let event = VoiceGateway.ClientEvent(data: .daveMLSKeyPackage(keyPackage))
+        await gateway.send(event)
     }
 
     public func readyForTransition(transitionId: UInt16) async {
-        // let event = VoiceGateway.ClientEvent(
-        //     data: .daveTransitionReady(.init(transitionId: transitionId)))
-        // try? await gateway.send(event)
+        let event = VoiceGateway.ClientEvent(
+            data: .daveTransitionReady(.init(transitionId: transitionId)))
+        await gateway.send(event)
     }
 
     public func mlsCommitWelcome(welcome: Data) async {
-        // let event = VoiceGateway.ClientEvent(data: .daveMLSCommitWelcome(welcome))
-        // try? await gateway.send(event)
+        let event = VoiceGateway.ClientEvent(data: .daveMLSCommitWelcome(welcome))
+        await gateway.send(event)
     }
 
     public func mlsInvalidCommitWelcome(transitionId: UInt16) async {
-        // let event = VoiceGateway.ClientEvent(
-        //     data: .daveMLSInvalidCommitWelcome(.init(transitionId: transitionId)))
-        // try? await gateway.send(event)
+        let event = VoiceGateway.ClientEvent(
+            data: .daveMLSInvalidCommitWelcome(.init(transitionId: transitionId)))
+        await gateway.send(event)
     }
 }
