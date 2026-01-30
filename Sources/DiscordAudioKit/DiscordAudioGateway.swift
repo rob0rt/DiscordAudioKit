@@ -1,6 +1,7 @@
 import WSClient
 import Foundation
 import AsyncAlgorithms
+import DaveKit
 
 final actor DiscordAudioGateway {
     private var sequence: Int = -1
@@ -24,18 +25,41 @@ final actor DiscordAudioGateway {
 
         while true {
             let closeFrame = try await WebSocketClient.connect(url: endpoint, logger: logger) { inbound, outbound, context in
-                await withThrowingTaskGroup { taskGroup in
-                    taskGroup.addTask {
-                        await onConnect(gateway)
-                    }
+                if await gateway.sequence == -1 {
+                    let identify = VoiceGateway.ClientEvent(
+                        data: .identify(.init(
+                            serverId: serverId,
+                            userId: userId,
+                            sessionId: sessionId,
+                            token: token,
+                            maxDaveProtocolVersion: DaveSessionManager.maxSupportedProtocolVersion(),
+                        )),
+                    )
+                    try await outbound.write(.init(from: identify))
 
-                    taskGroup.addTask {
-                        for try await message in inbound.messages(maxSize: 1 << 14) {
-                            await gateway.processMessage(message)
-                        }
-                    }
+                    // TODO: Wait for "Ready" event and call "onConnect"
+                } else {
+                    let resume = VoiceGateway.ClientEvent(
+                        data: .resume(.init(
+                            serverId: serverId,
+                            sessionId: sessionId,
+                            token: token,
+                            sequence: UInt16(await gateway.sequence),
+                        )),
+                    )
+                    try await outbound.write(.init(from: resume))
+
+                    // TODO: Wait for "Resumed" event
+                }
+
+                // TODO: Set "inbound" and "outbound" properties of gateway
+                
+                for try await message: WebSocketInboundMessageStream.Element in inbound.messages(maxSize: 1 << 14) {
+                    await gateway.processMessage(message)
                 }
             }
+
+            // TODO: Remove "inbound" and "outbound" properties of gateway
 
             guard let closeFrame,
                 let errorCode = VoiceGateway.CloseErrorCode(from: closeFrame),
@@ -44,6 +68,7 @@ final actor DiscordAudioGateway {
             }
         }
 
+        await gateway.heartbeatTask?.cancel()
         gateway.events.finish()
         gateway.outboundEvents.finish()
     }
