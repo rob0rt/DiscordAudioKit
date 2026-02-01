@@ -29,7 +29,7 @@ final actor DiscordAudioUDPConnection {
     static func connect(
         host: String,
         port: Int,
-        onConnect: @Sendable @escaping (DiscordAudioUDPConnection) async throws -> Void
+        onConnect: @Sendable @escaping (DiscordAudioUDPConnection, (ip: String, port: UInt16)) async throws -> Void
     ) async throws {
         let socketAddress = try SocketAddress(ipAddress: host, port: port)
         let server = try await DatagramBootstrap(group: NIOSingletons.posixEventLoopGroup)
@@ -46,13 +46,22 @@ final actor DiscordAudioUDPConnection {
             .get()
 
         try await server.executeThenClose { inbound, outbound in
+            guard let externalAddress = try await discoverExternalIP(
+                inbound: inbound,
+                outbound: outbound,
+                ssrc: UInt32.random(in: 0...UInt32.max),
+                socketAddress: socketAddress
+            ) else {
+                return
+            }
+            
             let connection = DiscordAudioUDPConnection(
                 inbound: inbound,
                 outbound: outbound,
                 socketAddress: socketAddress
             )
 
-            try await onConnect(connection)
+            try await onConnect(connection, externalAddress)
         }
     }
 
@@ -63,6 +72,45 @@ final actor DiscordAudioUDPConnection {
                 data: buffer
             )
         )
+    }
+
+    /// Perform IP discovery to find the external IP and port
+    /// Reference: https://discord.com/developers/docs/topics/voice-connections#ip-discovery
+    private static func discoverExternalIP(
+        inbound: NIOAsyncChannelInboundStream<AddressedEnvelope<ByteBuffer>>,
+        outbound: NIOAsyncChannelOutboundWriter<AddressedEnvelope<ByteBuffer>>,
+        ssrc: UInt32,
+        socketAddress: SocketAddress
+    ) async throws -> (ip: String, port: UInt16)? {
+        var buffer = ByteBufferAllocator().buffer(capacity: 74)
+        buffer.writeInteger(UInt16(0x1)) // Type
+        buffer.writeInteger(UInt16(70))  // Length
+        buffer.writeInteger(ssrc)
+        try await outbound.write(
+            AddressedEnvelope(
+                remoteAddress: socketAddress,
+                data: buffer
+            )
+        )
+
+        var iterator = inbound.makeAsyncIterator()
+        guard let discoveryResponse = try await iterator.next() else {
+            return nil
+        }
+
+        let data = discoveryResponse.data
+        guard
+            let address = data.getData(at: 6, length: 64),
+            let address = String(
+                data: address.prefix(upTo: address.firstIndex(of: 0) ?? address.endIndex),
+                encoding: .utf8,
+            ),
+            let port = data.getInteger(at: 70, as: UInt16.self)
+        else {
+            return nil
+        }
+
+        return (ip: address, port: port)
     }
 
     /// Process a raw UDP voice packet
