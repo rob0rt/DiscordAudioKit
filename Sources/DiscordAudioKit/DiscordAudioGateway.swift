@@ -56,9 +56,6 @@ final actor DiscordAudioGateway {
                 try await gateway.websocketConnectionTask?.value
             }
 
-            // Connection closed - stop sending outbound events
-            await gateway.outboundTask?.cancel()
-
             guard let closeFrame,
                 let errorCode = VoiceGateway.CloseErrorCode(from: closeFrame),
                 errorCode.shouldReconnect else {
@@ -91,11 +88,16 @@ final actor DiscordAudioGateway {
             }
         }
 
+        defer {
+            // Once the connection ends, cancel the outbound task
+            outboundTask?.cancel()
+        }
+
         if self.sequence == -1 {
             self.onConnectTask = Task {
                 defer {
-                    // onConnect completed, shutdown the websocket connection - this should
-                    // start the full shutdown process.
+                    //When we return from onConnect, cancel the websocket connection which
+                    // will trigger a full shutdown
                     websocketConnectionTask?.cancel()
                 }
 
@@ -139,14 +141,6 @@ final actor DiscordAudioGateway {
 
         for try await message in inbound.messages(maxSize: 1 << 14) {
             await self.events.send(try self.processMessage(message))
-        }
-    }
-
-    private func setupOutbound(_ outbound: WebSocketOutboundWriter) {
-        outboundTask = Task {
-            for await event in outboundEvents._throttle(for: .milliseconds(500)) {
-                try await outbound.write(.init(from: event))
-            }
         }
     }
 

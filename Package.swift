@@ -18,6 +18,8 @@ let package = Package(
         .package(url: "git@github.com:hummingbird-project/swift-websocket.git", from: "1.3.2"),
         .package(url: "git@github.com:apple/swift-log.git", from: "1.9.0"),
         .package(url: "git@github.com:apple/swift-async-algorithms.git", from: "1.1.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.0.0"),
+        .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -30,11 +32,21 @@ let package = Package(
                 .product(name: "WSClient", package: "swift-websocket"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                .product(name: "Crypto", package: "swift-crypto"),
+                .target(name: "DiscordRTP"),
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),
             ],
         ),
+
+        .target(
+            name: "DiscordRTP",
+            dependencies: [
+                .product(name: "NIOCore", package: "swift-nio"),
+            ],
+        ),
+
         .testTarget(
             name: "DiscordAudioKitTests",
             dependencies: ["DiscordAudioKit"]
