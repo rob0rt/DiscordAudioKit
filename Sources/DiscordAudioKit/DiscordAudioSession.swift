@@ -178,6 +178,13 @@ public actor DiscordAudioSession: DaveSessionDelegate {
                 ))
 
                 await self.setUDPConnection(connection)
+                
+                // When this function returns, the UDP connection will be closed, so we
+                // need to keep it alive. Other things will be handled in other tasks.
+                // Luckily, we also need to send keepalive packets to the voice server.
+                // We can accomplish both requirements by awaiting the keepalive task
+                // here.
+                try await connection.keepalive(ssrc: ready.ssrc)
             }
         }
     }

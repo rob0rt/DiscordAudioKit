@@ -2,10 +2,14 @@ import NIO
 import Foundation
 import NIOFoundationCompat
 import Crypto
+import AsyncAlgorithms
 
 final actor DiscordAudioUDPConnection {
+    private static let KEEPALIVE_INTERVAL: Duration = .seconds(5)
+
     let inbound: NIOAsyncChannelInboundStream<AddressedEnvelope<ByteBuffer>>
     let outbound: NIOAsyncChannelOutboundWriter<AddressedEnvelope<ByteBuffer>>
+
     private let socketAddress: SocketAddress
 
     private init(
@@ -91,5 +95,17 @@ final actor DiscordAudioUDPConnection {
         }
 
         return (ip: address, port: port)
+    }
+
+    /// Start sending keepalive packets at regular intervals
+    func keepalive(ssrc: UInt32) async throws {
+        for await _ in AsyncTimerSequence(
+            interval: DiscordAudioUDPConnection.KEEPALIVE_INTERVAL,
+            clock: .continuous
+        ) {
+            var buffer: ByteBuffer = ByteBufferAllocator().buffer(capacity: 4)
+            buffer.writeInteger(ssrc, endianness: .big)
+            try await send(buffer: buffer)
+        }
     }
 }
