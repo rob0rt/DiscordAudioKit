@@ -17,7 +17,7 @@ enum MultiplexRTP {
             return
         }
 
-        guard let rtpPacket = RTPPacket(from: buffer) else {
+        guard let rtpPacket = RTPPacket(rawValue: buffer) else {
             return nil
         }
         self = .RTP(rtpPacket)

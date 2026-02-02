@@ -1,5 +1,5 @@
 /// https://www.iana.org/assignments/rtp-parameters/rtp-parameters.xhtml#rtp-parameters-1
-public enum RTPType {
+public enum RTPType: RawRepresentable {
     case pcmu
     case gsm
     case g723
@@ -7,7 +7,7 @@ public enum RTPType {
     case lpc
     case pcma
     case g722
-    case l16(channels: UInt8)
+    case l16(l16Channels)
     case qcelp
     case cn
     case mpa
@@ -29,8 +29,13 @@ public enum RTPType {
         case `22050`
     }
 
-    init?(from: UInt8) {
-        switch from {
+    public enum l16Channels: Int {
+        case mono = 1
+        case stereo = 2
+    }
+
+    public init?(rawValue: UInt8) {
+        switch rawValue {
         case 0: self = .pcmu
         case 3: self = .gsm
         case 4: self = .g723
@@ -39,8 +44,8 @@ public enum RTPType {
         case 7: self = .lpc
         case 8: self = .pcma
         case 9: self = .g722
-        case 10: self = .l16(channels: 1)
-        case 11: self = .l16(channels: 2)
+        case 10: self = .l16(.mono)
+        case 11: self = .l16(.stereo)
         case 12: self = .qcelp
         case 13: self = .cn
         case 14: self = .mpa
@@ -55,9 +60,39 @@ public enum RTPType {
         case 32: self = .mpv
         case 33: self = .mp2t
         case 34: self = .h263
-        case 96...127: self = .dynamic(from)
+        case 96...127: self = .dynamic(rawValue)
         default:
             return nil
+        }
+    }
+
+    public var rawValue: UInt8 {
+        switch self {
+        case .pcmu: return 0
+        case .gsm: return 3
+        case .g723: return 4
+        case .dvi4(.`8000`): return 5
+        case .dvi4(.`16000`): return 6
+        case .lpc: return 7
+        case .pcma: return 8
+        case .g722: return 9
+        case .l16(.mono): return 10
+        case .l16(.stereo): return 11
+        case .qcelp: return 12
+        case .cn: return 13
+        case .mpa: return 14
+        case .g728: return 15
+        case .dvi4(.`11025`): return 16
+        case .dvi4(.`22050`): return 17
+        case .g729: return 18
+        case .celB: return 25
+        case .jpeg: return 26
+        case .nv: return 28
+        case .h261: return 31
+        case .mpv: return 32
+        case .mp2t: return 33
+        case .h263: return 34
+        case .dynamic(let value): return value
         }
     }
 }

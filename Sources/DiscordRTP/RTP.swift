@@ -2,7 +2,7 @@ import NIOCore
 
 /// Represents a Real-time Transport Protocol (RTP) packet used for audio streaming.
 /// https://datatracker.ietf.org/doc/html/rfc3550#section-5.1
-public struct RTPPacket {
+public struct RTPPacket: RawRepresentable {
     // MARK: - First byte
 
     /// This field identifies the version of RTP.  The version defined by
@@ -138,8 +138,8 @@ public struct RTPPacket {
     /// Remaining payload data
     public let payload: ByteBuffer
 
-    public init?(from: ByteBuffer) {
-        var buffer = from
+    public init?(rawValue: ByteBuffer) {
+        var buffer: ByteBuffer = rawValue
         guard let firstByte = buffer.readInteger(as: UInt8.self) else {
             return nil
         }
@@ -154,7 +154,7 @@ public struct RTPPacket {
         let csrcCount = firstByte & 0b00001111
 
         guard let secondByte = buffer.readInteger(as: UInt8.self),
-              let rtpType = RTPType(from: secondByte & 0b01111111) else {
+              let rtpType = RTPType(rawValue: secondByte & 0b01111111) else {
             return nil
         }
         self.marker = ((secondByte & 0b10000000) >> 7) == 1
@@ -181,5 +181,33 @@ public struct RTPPacket {
         self.csrcs = csrcs
 
         self.payload = buffer
+    }
+
+    public var rawValue: ByteBuffer {
+        var buffer = ByteBuffer()
+
+        var firstByte: UInt8 = 0
+        firstByte |= (self.version & 0b00000011) << 6
+        firstByte |= (self.padding ? 1 : 0) << 5
+        firstByte |= (self.extension ? 1 : 0) << 4
+        firstByte |= UInt8(self.csrcs.count & 0b00001111)
+        buffer.writeInteger(firstByte)
+
+        var secondByte: UInt8 = 0
+        secondByte |= (self.marker ? 1 : 0) << 7
+        secondByte |= (self.payloadType.rawValue & 0b01111111)
+        buffer.writeInteger(secondByte)
+
+        buffer.writeInteger(self.sequence)
+        buffer.writeInteger(self.timestamp)
+        buffer.writeInteger(self.ssrc)
+
+        for csrc in self.csrcs {
+            buffer.writeInteger(csrc)
+        }
+
+        buffer.writeImmutableBuffer(self.payload)
+
+        return buffer
     }
 }
