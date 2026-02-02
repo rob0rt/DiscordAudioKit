@@ -146,8 +146,7 @@ final actor DiscordAudioGateway {
 
     private func setupHeartbeat(interval: Duration) {
         heartbeatTask = Task {
-            while !Task.isCancelled {
-                try await Task.sleep(for: interval)
+             for await _ in AsyncTimerSequence(interval: interval, clock: .continuous) {
                 let heartbeat = VoiceGateway.ClientEvent(data: .heartbeat(.init(
                     nonce: UInt64(Date().timeIntervalSince1970),
                     sequence: self.sequence,
