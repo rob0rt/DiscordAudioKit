@@ -1,5 +1,5 @@
 {
-  "originHash" : "a7555a44bed1e394e3615a5ea948ccc2095bcbb835469a410fa21c786f8adad3",
+  "originHash" : "adc0dc9163f7499ec8fa4edb0d94c1e2b6394dc394731ad369b7e5e754031736",
   "pins" : [
     {
       "identity" : "compress-nio",
@@ -13,16 +13,16 @@
     {
       "identity" : "davekit",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:rob0rt/DaveKit.git",
+      "location" : "https://github.com/SwiftDiscordAudio/DaveKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "bd769b91b5e42962713956bd1b59c8b2a169a781"
+        "revision" : "3c6d5e401da22b01262ceb560f018ddd740d07e3"
       }
     },
     {
       "identity" : "opuskit",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:rob0rt/OpusKit.git",
+      "location" : "https://github.com/SwiftDiscordAudio/OpusKit.git",
       "state" : {
         "branch" : "main",
         "revision" : "2d7479d5e676d85af86c3cc54abf5b8a15904123"
@@ -49,7 +49,7 @@
     {
       "identity" : "swift-async-algorithms",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:apple/swift-async-algorithms.git",
+      "location" : "https://github.com/apple/swift-async-algorithms.git",
       "state" : {
         "revision" : "6c050d5ef8e1aa6342528460db614e9770d7f804",
         "version" : "1.1.1"
@@ -112,7 +112,7 @@
     {
       "identity" : "swift-log",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:apple/swift-log.git",
+      "location" : "https://github.com/apple/swift-log",
       "state" : {
         "revision" : "2778fd4e5a12a8aaa30a3ee8285f4ce54c5f3181",
         "version" : "1.9.1"
@@ -193,7 +193,7 @@
     {
       "identity" : "swift-websocket",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:hummingbird-project/swift-websocket.git",
+      "location" : "https://github.com/hummingbird-project/swift-websocket.git",
       "state" : {
         "revision" : "7a2aec4d399e555cac4b14015e8a5b4793438840",
         "version" : "1.4.0"
